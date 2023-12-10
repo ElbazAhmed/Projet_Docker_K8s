@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: exam
+data:
+  SPRING_DATASOURCE_URL: "jdbc:mysql://mysql-service:3306/testdb?useSSL=false&allowPublicKeyRetrieval=true&autoReconnect=true"
+  SPRING_DATASOURCE_USERNAME: "root"

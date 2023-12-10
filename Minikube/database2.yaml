@@ -1,0 +1,118 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: exam
+data:
+  MYSQL_HOST: mysql-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: exam
+spec:
+  selector:
+    app: backend
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  namespace: exam
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: localhost:5000/registry-projetbackend
+        ports:
+        - containerPort: 8080
+        env:
+          - name: MYSQL_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: backend-config
+                key: MYSQL_HOST
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: mysql-secret
+                key: MYSQL_ROOT_PASSWORD
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-service
+  namespace: exam
+spec:
+  selector:
+    app: mysql
+  ports:
+    - protocol: TCP
+      port: 3306
+      targetPort: 3306
+  clusterIP: None
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-secret
+  namespace: exam
+type: Opaque
+data:
+  MYSQL_ROOT_PASSWORD: cm9vdA0K #le mot de passe en base64
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql-statefulset
+  namespace: exam
+spec:
+  serviceName: "mysql"  # Utilisez le nom du service pour exposer le StatefulSet
+  replicas: 2
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: mysql-service
+        image: localhost:5000/registry-mysql
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: MYSQL_ROOT_PASSWORD
+        - name: MYSQL_DATABASE
+          value: testdb
+        ports:
+        - containerPort: 3306
+          name: mysql
+        volumeMounts:
+        - name: volmysql
+          mountPath: /var/lib/mysql
+  volumeClaimTemplates:
+  - metadata:
+      name: volmysql
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 1Gi
